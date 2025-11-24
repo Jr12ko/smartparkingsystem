@@ -17,13 +17,13 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   final List<Map<String, dynamic>> _parkingSpots = [
     {'id': 'A1', 'top': 141.0, 'left': 170.0, 'status': 'available'},
-    {'id': 'A2', 'top': 192.0, 'left': 160.0, 'status': 'taken'},
-    {'id': 'A3', 'top': 228.0, 'left': 160.0, 'status': 'taken'},
-    {'id': 'A4', 'top': 267.0, 'left': 160.0, 'status': 'taken'},
-    {'id': 'A5', 'top': 157.0, 'left': 240.0, 'status': 'available'},
-    {'id': 'A6', 'top': 192.0, 'left': 240.0, 'status': 'available'},
-    {'id': 'A7', 'top': 228.0, 'left': 240.0, 'status': 'available'},
-    {'id': 'A8', 'top': 267.0, 'left': 240.0, 'status': 'available'},
+    {'id': 'A2', 'top': 173.0, 'left': 170.0, 'status': 'taken'},
+    {'id': 'A3', 'top': 207.0, 'left': 170.0, 'status': 'taken'},
+    {'id': 'A4', 'top': 241.0, 'left': 170.0, 'status': 'taken'},
+    {'id': 'A5', 'top': 141.0, 'left': 240.0, 'status': 'available'},
+    {'id': 'A6', 'top': 173.0, 'left': 240.0, 'status': 'available'},
+    {'id': 'A7', 'top': 207.0, 'left': 240.0, 'status': 'available'},
+    {'id': 'A8', 'top': 241.0, 'left': 240.0, 'status': 'available'},
   ];
 
   final Map<String, List<Map<String, dynamic>>> _routes = {

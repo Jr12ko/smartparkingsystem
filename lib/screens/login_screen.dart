@@ -21,17 +21,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _login() {
     String username = _usernameController.text;
+    String password = _passwordController.text;
 
-    if (username.isNotEmpty) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => HomeScreen(username: username),
-        ),
-      );
-    } else {
-      print('Username is empty!');
+    if (username.isEmpty || password.isEmpty) {
+      print('Username or password is empty!');
+      return;
     }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => HomeScreen(
+          username: username,
+          password: password,
+        ),
+      ),
+    );
   }
 
   void _resetPassword() {

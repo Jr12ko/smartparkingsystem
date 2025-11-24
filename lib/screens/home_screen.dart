@@ -4,9 +4,10 @@ import 'setting_screen.dart';
 import 'statistics_screen.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({required this.username, super.key});
+  const HomeScreen({required this.username, super.key, required this.password});
 
   final String username;
+  final String password;
 
   @override
   Widget build(BuildContext context) {
