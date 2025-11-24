@@ -41,10 +41,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _resetPassword() {
-    print('Reset password button pressed!');
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
