@@ -26,7 +26,12 @@ class _LoginScreenState extends State<LoginScreen> {
     String password = _passwordController.text;
 
     if (username.isEmpty || password.isEmpty) {
-      print('Username or password is empty!');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Username or Password is Empty!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
       return;
     }
 
