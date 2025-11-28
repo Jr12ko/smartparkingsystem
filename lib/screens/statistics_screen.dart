@@ -25,9 +25,6 @@ class StatisticsScreen extends StatelessWidget {
                 style:
                     const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            const Text("Peak Hours",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
             Expanded(
               child: ListView(
                 children: carCount.entries.map((entry) {
