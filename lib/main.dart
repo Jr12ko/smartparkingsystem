@@ -1,15 +1,98 @@
 import 'package:flutter/material.dart';
+import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'screens/login_screen.dart';
+import 'screens/home_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await _configureAmplify();
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+Future<void> _configureAmplify() async {
+  try {
+    final auth = AmplifyAuthCognito();
+    await Amplify.addPlugin(auth);
+
+    // Define the configuration manually
+    const amplifyConfig = ''' {
+      "UserAgent": "aws-amplify-cli/2.0",
+      "Version": "1.0",
+      "auth": {
+        "plugins": {
+          "awsCognitoAuthPlugin": {
+            "UserAgent": "aws-amplify-cli/0.1.0",
+            "Version": "0.1.0",
+            "IdentityManager": {
+              "Default": {}
+            },
+            "CognitoUserPool": {
+              "Default": {
+                "PoolId": "us-east-1_U2PQuujH9",
+                "AppClientId": "562gj6sf0uouh7ufcip2gij1e1",
+                "Region": "us-east-1"
+              }
+            },
+            "Auth": {
+              "Default": {
+                "authenticationFlowType": "USER_SRP_AUTH"
+              }
+            }
+          }
+        }
+      }
+    }''';
+
+    await Amplify.configure(amplifyConfig);
+    safePrint('Successfully configured Amplify');
+  } on Exception catch (e) {
+    safePrint('Error configuring Amplify: $e');
+  }
+}
+
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _isSignedIn = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthStatus();
+  }
+
+  Future<void> _checkAuthStatus() async {
+    try {
+      final session = await Amplify.Auth.fetchAuthSession();
+      setState(() {
+        _isSignedIn = session.isSignedIn;
+        _isLoading = false;
+      });
+    } catch (e) {
+      safePrint('Error checking auth status: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const MaterialApp(
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
     return MaterialApp(
       title: 'Smart Parking System',
       debugShowCheckedModeBanner: false,
@@ -50,7 +133,9 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      home: _isSignedIn
+          ? const HomeScreen(username: 'User', password: '')
+          : const LoginScreen(),
     );
   }
 }
