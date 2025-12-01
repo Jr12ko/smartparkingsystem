@@ -148,6 +148,25 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const Text('Login'),
                   ),
                 ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HomeScreen(
+                            username: 'Guest',
+                            password: '',
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text('Login as Guest'),
+                  ),
+                ),
               ],
             ),
           ),

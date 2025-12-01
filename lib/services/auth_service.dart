@@ -81,7 +81,6 @@ class AuthService {
     }
   }
 
-  // Check if user is signed in
   Future<bool> isUserSignedIn() async {
     try {
       final result = await Amplify.Auth.fetchAuthSession();
