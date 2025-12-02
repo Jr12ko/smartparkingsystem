@@ -71,38 +71,72 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color.fromARGB(255, 0, 0, 50),
+        scaffoldBackgroundColor: const Color(0xFF1E1E2C), // Midnight Blue
+        primaryColor: const Color(0xFF6C63FF), // Soft Violet
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color.fromARGB(255, 255, 255, 255),
+          seedColor: const Color(0xFF6C63FF),
           brightness: Brightness.dark,
+          surface:
+              const Color(0xFF2D2D44), // Lighter Midnight for cards/surfaces
         ),
+        useMaterial3: true,
+        fontFamily:
+            'Roboto', // Ensure a clean font is used (default, but explicit is good)
         textTheme: const TextTheme(
+          headlineMedium: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            letterSpacing: 1.2,
+          ),
           bodyLarge: TextStyle(
-              fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-          bodyMedium: TextStyle(fontSize: 16, color: Colors.white),
-          bodySmall: TextStyle(fontSize: 14, color: Color(0xFFB8B8C7)),
+              fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
+          bodyMedium: TextStyle(fontSize: 14, color: Color(0xFFE0E0E0)),
+          bodySmall: TextStyle(fontSize: 12, color: Color(0xFFB8B8C7)),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: const Color(0xFF1A1A25),
+          fillColor: const Color(0xFF2D2D44),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.deepPurple),
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFB18CFF), width: 2),
+            borderRadius: BorderRadius.circular(20),
+            borderSide: const BorderSide(color: Color(0xFF6C63FF), width: 2),
           ),
-          labelStyle: const TextStyle(color: Color(0xFFC9C9E0)),
+          labelStyle: const TextStyle(color: Color(0xFFA0A0B0)),
+          prefixIconColor: const Color(0xFF6C63FF),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.deepPurple,
+            backgroundColor: const Color(0xFF6C63FF),
             foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 48),
+            elevation: 8,
+            shadowColor: const Color(0xFF6C63FF).withOpacity(0.5),
+            minimumSize: const Size(double.infinity, 56),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(20),
             ),
+            textStyle: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ),
+        cardTheme: CardThemeData(
+          color: const Color(0xFF2D2D44),
+          elevation: 4,
+          shadowColor: Colors.black26,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
         ),
       ),
