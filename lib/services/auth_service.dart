@@ -1,4 +1,5 @@
 import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 
 class AuthService {
   // Sign Up
@@ -86,6 +87,22 @@ class AuthService {
       return result.isSignedIn;
     } on AuthException catch (e) {
       safePrint('Error checking auth session: ${e.message}');
+      return false;
+    }
+  }
+
+  // Check if user is Admin
+  Future<bool> isAdmin() async {
+    try {
+      final session = await Amplify.Auth.fetchAuthSession();
+      if (session is CognitoAuthSession) {
+        final idToken = session.userPoolTokensResult.value.idToken;
+        final groups = idToken.groups;
+        return groups.contains('Admins');
+      }
+      return false;
+    } catch (e) {
+      safePrint('Error checking admin status: $e');
       return false;
     }
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+import 'package:smart_parking_system/services/auth_service.dart';
+import 'admin_screen.dart';
 
 class SettingScreen extends StatefulWidget {
   const SettingScreen({
@@ -27,6 +29,32 @@ class _SettingScreenState extends State<SettingScreen> {
         child: Column(
           children: [
             const SizedBox(height: 32),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6C63FF),
+              ),
+              onPressed: () async {
+                final isAdmin = await AuthService().isAdmin();
+                if (context.mounted) {
+                  if (isAdmin) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const AdminScreen()),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Access Denied: Admins only'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Admin Panel'),
+            ),
+            const SizedBox(height: 16),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,

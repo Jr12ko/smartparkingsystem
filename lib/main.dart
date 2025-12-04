@@ -119,7 +119,7 @@ class _MyAppState extends State<MyApp> {
             backgroundColor: const Color(0xFF6C63FF),
             foregroundColor: Colors.white,
             elevation: 8,
-            shadowColor: const Color(0xFF6C63FF).withOpacity(0.5),
+            shadowColor: const Color(0xFF6C63FF).withValues(alpha: 0.5),
             minimumSize: const Size(double.infinity, 56),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
