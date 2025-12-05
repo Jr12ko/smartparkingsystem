@@ -43,7 +43,6 @@ class _FadeSlideTransitionState extends State<FadeSlideTransition>
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
 
-    // Stagger the animation based on index
     Future.delayed(Duration(milliseconds: widget.index * 100), () {
       if (mounted) {
         _controller.forward();

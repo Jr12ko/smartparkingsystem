@@ -16,7 +16,6 @@ Future<void> _configureAmplify() async {
     final auth = AmplifyAuthCognito();
     await Amplify.addPlugin(auth);
 
-    // Define the configuration manually
     await Amplify.configure(amplifyConfig);
     safePrint('Successfully configured Amplify');
   } on Exception catch (e) {
@@ -76,12 +75,10 @@ class _MyAppState extends State<MyApp> {
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF6C63FF),
           brightness: Brightness.dark,
-          surface:
-              const Color(0xFF2D2D44), // Lighter Midnight for cards/surfaces
+          surface: const Color(0xFF2D2D44),
         ),
         useMaterial3: true,
-        fontFamily:
-            'Roboto', // Ensure a clean font is used (default, but explicit is good)
+        fontFamily: 'Roboto',
         textTheme: const TextTheme(
           headlineMedium: TextStyle(
             fontSize: 28,
