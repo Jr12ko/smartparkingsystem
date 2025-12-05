@@ -12,7 +12,7 @@ import 'grid_designer_web.dart' if (dart.library.io) 'grid_designer_io.dart'
     as file_ops;
 
 /// Tool modes for the grid designer
-enum DesignerTool { select, pan, addSpot, delete, ruler }
+enum DesignerTool { select, pan, addSpot, delete, ruler, rotate }
 
 /// Main grid designer screen for creating/editing parking layouts
 class GridDesignerScreen extends StatefulWidget {
@@ -52,6 +52,16 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
     super.initState();
     _grid = ParkingGrid.empty(name: 'New Parking Grid');
     _saveState();
+
+    // Center the canvas view after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _centerCanvas();
+    });
+  }
+
+  void _centerCanvas() {
+    // Reset to identity matrix to center the view
+    _transformController.value = Matrix4.identity();
   }
 
   void _saveState() {
@@ -97,8 +107,20 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
     final centeredY = y - tempSpot.height / 2;
 
     // Snap the centered position to grid
-    final snappedX = _grid.snapToGrid(centeredX);
-    final snappedY = _grid.snapToGrid(centeredY);
+    var snappedX = _grid.snapToGrid(centeredX);
+    var snappedY = _grid.snapToGrid(centeredY);
+
+    // Clamp position to keep spot within canvas bounds
+    snappedX = snappedX.clamp(0, _grid.canvasWidth - tempSpot.width);
+    snappedY = snappedY.clamp(0, _grid.canvasHeight - tempSpot.height);
+
+    // Check if the spot would be completely outside the canvas
+    if (snappedX + tempSpot.width <= 0 ||
+        snappedX >= _grid.canvasWidth ||
+        snappedY + tempSpot.height <= 0 ||
+        snappedY >= _grid.canvasHeight) {
+      return; // Don't place spot outside canvas
+    }
 
     final spot = ParkingSpot(
       id: _grid.generateSpotId(),
@@ -259,6 +281,48 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
     }
   }
 
+  void _showRenameDialog() {
+    final controller = TextEditingController(text: _grid.name);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Grid'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Grid Name',
+            hintText: 'Enter grid name',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (value) {
+            if (value.trim().isNotEmpty) {
+              setState(() => _grid.name = value.trim());
+              _saveState();
+            }
+            Navigator.pop(context);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                setState(() => _grid.name = controller.text.trim());
+                _saveState();
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Focus(
@@ -279,12 +343,33 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
               return KeyEventResult.handled;
             }
           }
+          // R key to rotate selected spots by 90 degrees
+          else if (event.logicalKey == LogicalKeyboardKey.keyR) {
+            if (_selectedSpotIds.isNotEmpty) {
+              _rotateSelectedSpots();
+              return KeyEventResult.handled;
+            }
+          }
         }
         return KeyEventResult.ignored;
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_grid.name),
+          title: InkWell(
+            onTap: _showRenameDialog,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_grid.name),
+                  const SizedBox(width: 8),
+                  Icon(Icons.edit, size: 16, color: Colors.white70),
+                ],
+              ),
+            ),
+          ),
           backgroundColor: Colors.transparent,
           elevation: 0,
           actions: [
@@ -356,6 +441,12 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
           ),
           const SizedBox(height: 8),
           _buildToolButton(
+            icon: Icons.pan_tool,
+            label: 'Pan',
+            tool: DesignerTool.pan,
+          ),
+          const SizedBox(height: 8),
+          _buildToolButton(
             icon: Icons.add_box,
             label: 'Add',
             tool: DesignerTool.addSpot,
@@ -371,6 +462,12 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
             icon: Icons.straighten,
             label: 'Ruler',
             tool: DesignerTool.ruler,
+          ),
+          const SizedBox(height: 8),
+          _buildToolButton(
+            icon: Icons.rotate_right,
+            label: 'Rotate (R)',
+            tool: DesignerTool.rotate,
           ),
           const Divider(height: 32),
           _buildSpotTypeButton(
@@ -529,6 +626,13 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
                             _rulerStart = localPosition;
                             _rulerEnd = localPosition;
                           });
+                        } else if (_currentTool == DesignerTool.rotate) {
+                          // Rotate the clicked spot by 90 degrees
+                          final spotId =
+                              _findSpotAt(localPosition.dx, localPosition.dy);
+                          if (spotId != null) {
+                            _rotateSpot(spotId);
+                          }
                         }
                       },
                       onPointerMove: (event) {
@@ -546,9 +650,13 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
                                     localPosition.dx - _spotDragOffset!.dx;
                                 final newY =
                                     localPosition.dy - _spotDragOffset!.dy;
-                                // Snap to grid
-                                spot.x = _grid.snapToGrid(newX);
-                                spot.y = _grid.snapToGrid(newY);
+                                // Snap to grid and clamp within canvas bounds
+                                spot.x = _grid
+                                    .snapToGrid(newX)
+                                    .clamp(0, _grid.canvasWidth - spot.width);
+                                spot.y = _grid
+                                    .snapToGrid(newY)
+                                    .clamp(0, _grid.canvasHeight - spot.height);
                               });
                             }
                           } else if (_dragStart != null) {
@@ -600,20 +708,36 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
                         constrained: false,
                         minScale: 0.5,
                         maxScale: 3.0,
-                        boundaryMargin: const EdgeInsets.all(200),
-                        child: SizedBox(
-                          width: _grid.canvasWidth,
-                          height: _grid.canvasHeight,
-                          child: CustomPaint(
-                            size: Size(_grid.canvasWidth, _grid.canvasHeight),
-                            painter: GridPainter(
-                              grid: _grid,
-                              selectedSpotIds: _selectedSpotIds,
-                              dragStart: _dragStart,
-                              dragEnd: _dragEnd,
-                              rulerStart: _rulerStart,
-                              rulerEnd: _rulerEnd,
-                              isHoveringRuler: _isHoveringRuler,
+                        boundaryMargin: const EdgeInsets.all(500),
+                        child: Center(
+                          child: Container(
+                            width: _grid.canvasWidth,
+                            height: _grid.canvasHeight,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0D0D1A),
+                              border: Border.all(
+                                color: Colors.white24,
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.5),
+                                  blurRadius: 20,
+                                  spreadRadius: 5,
+                                ),
+                              ],
+                            ),
+                            child: CustomPaint(
+                              size: Size(_grid.canvasWidth, _grid.canvasHeight),
+                              painter: GridPainter(
+                                grid: _grid,
+                                selectedSpotIds: _selectedSpotIds,
+                                dragStart: _dragStart,
+                                dragEnd: _dragEnd,
+                                rulerStart: _rulerStart,
+                                rulerEnd: _rulerEnd,
+                                isHoveringRuler: _isHoveringRuler,
+                              ),
                             ),
                           ),
                         ),
@@ -678,6 +802,44 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
       _rulerStart = null;
       _rulerEnd = null;
     });
+  }
+
+  /// Rotate a single spot by 90 degrees
+  void _rotateSpot(String spotId) {
+    final spot = _grid.findSpot(spotId);
+    if (spot != null) {
+      setState(() {
+        // Rotate by 90 degrees (add 90, wrap at 360)
+        spot.rotation = (spot.rotation + 90) % 360;
+        // Swap width and height for 90/270 degree rotations
+        final oldWidth = spot.width;
+        spot.width = spot.height;
+        spot.height = oldWidth;
+        // Auto-select the rotated spot
+        _selectedSpotIds.clear();
+        _selectedSpotIds.add(spotId);
+      });
+      _saveState();
+    }
+  }
+
+  /// Rotate all selected spots by 90 degrees
+  void _rotateSelectedSpots() {
+    if (_selectedSpotIds.isEmpty) return;
+    setState(() {
+      for (final spotId in _selectedSpotIds) {
+        final spot = _grid.findSpot(spotId);
+        if (spot != null) {
+          // Rotate by 90 degrees (add 90, wrap at 360)
+          spot.rotation = (spot.rotation + 90) % 360;
+          // Swap width and height for 90/270 degree rotations
+          final oldWidth = spot.width;
+          spot.width = spot.height;
+          spot.height = oldWidth;
+        }
+      }
+    });
+    _saveState();
   }
 
   Widget _buildInfoBar() {
@@ -848,6 +1010,22 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
             },
           ),
           const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _rotateSpot(spot.id),
+                  icon: const Icon(Icons.rotate_right, size: 18),
+                  label: const Text('Rotate'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    minimumSize: const Size(0, 40),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           ElevatedButton.icon(
             onPressed: _deleteSelectedSpot,
             icon: const Icon(Icons.delete, size: 18),
@@ -909,6 +1087,16 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
             },
           ),
           const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _rotateSelectedSpots,
+            icon: const Icon(Icons.rotate_right, size: 18),
+            label: const Text('Rotate All'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              minimumSize: const Size(double.infinity, 40),
+            ),
+          ),
+          const SizedBox(height: 8),
           ElevatedButton.icon(
             onPressed: _deleteSelectedSpot,
             icon: const Icon(Icons.delete, size: 18),
