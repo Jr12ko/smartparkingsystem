@@ -60,6 +60,11 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
   String? _draggingObstacleId;
   Offset? _obstacleDragOffset;
 
+  // Clipboard for copy/paste
+  List<ParkingSpot> _clipboardSpots = [];
+  List<Road> _clipboardRoads = [];
+  List<Obstacle> _clipboardObstacles = [];
+
   @override
   void initState() {
     super.initState();
@@ -376,6 +381,139 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
     _selectedObstacleIds.clear();
   }
 
+  /// Copy selected elements to clipboard
+  void _copySelected() {
+    _clipboardSpots = _grid.spots
+        .where((s) => _selectedSpotIds.contains(s.id))
+        .map((s) => ParkingSpot(
+              id: s.id,
+              x: s.x,
+              y: s.y,
+              width: s.width,
+              height: s.height,
+              rotation: s.rotation,
+              type: s.type,
+              label: s.label,
+            ))
+        .toList();
+
+    _clipboardRoads = _grid.roads
+        .where((r) => _selectedRoadIds.contains(r.id))
+        .map((r) => Road(
+              id: r.id,
+              x: r.x,
+              y: r.y,
+              width: r.width,
+              height: r.height,
+            ))
+        .toList();
+
+    _clipboardObstacles = _grid.obstacles
+        .where((o) => _selectedObstacleIds.contains(o.id))
+        .map((o) => Obstacle(
+              id: o.id,
+              x: o.x,
+              y: o.y,
+              width: o.width,
+              height: o.height,
+              type: o.type,
+            ))
+        .toList();
+
+    if (_clipboardSpots.isNotEmpty ||
+        _clipboardRoads.isNotEmpty ||
+        _clipboardObstacles.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Copied ${_clipboardSpots.length} spots, ${_clipboardRoads.length} roads, ${_clipboardObstacles.length} obstacles'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
+  /// Paste elements from clipboard with offset
+  void _pasteFromClipboard() {
+    if (_clipboardSpots.isEmpty &&
+        _clipboardRoads.isEmpty &&
+        _clipboardObstacles.isEmpty) {
+      return;
+    }
+
+    const pasteOffset = 20.0;
+
+    setState(() {
+      _clearAllSelections();
+
+      // Paste spots
+      for (final spot in _clipboardSpots) {
+        final newSpot = ParkingSpot(
+          id: _grid.generateSpotId(),
+          x: (spot.x + pasteOffset).clamp(0, _grid.canvasWidth - spot.width),
+          y: (spot.y + pasteOffset).clamp(0, _grid.canvasHeight - spot.height),
+          width: spot.width,
+          height: spot.height,
+          rotation: spot.rotation,
+          type: spot.type,
+          label: spot.label,
+        );
+        _grid.addSpot(newSpot);
+        _selectedSpotIds.add(newSpot.id);
+      }
+
+      // Paste roads
+      for (final road in _clipboardRoads) {
+        final newRoad = Road(
+          id: _grid.generateRoadId(),
+          x: (road.x + pasteOffset).clamp(0, _grid.canvasWidth - road.width),
+          y: (road.y + pasteOffset).clamp(0, _grid.canvasHeight - road.height),
+          width: road.width,
+          height: road.height,
+        );
+        _grid.addRoad(newRoad);
+        _selectedRoadIds.add(newRoad.id);
+      }
+
+      // Paste obstacles
+      for (final obstacle in _clipboardObstacles) {
+        final newObstacle = Obstacle(
+          id: _grid.generateObstacleId(),
+          x: (obstacle.x + pasteOffset)
+              .clamp(0, _grid.canvasWidth - obstacle.width),
+          y: (obstacle.y + pasteOffset)
+              .clamp(0, _grid.canvasHeight - obstacle.height),
+          width: obstacle.width,
+          height: obstacle.height,
+          type: obstacle.type,
+        );
+        _grid.addObstacle(newObstacle);
+        _selectedObstacleIds.add(newObstacle.id);
+      }
+    });
+
+    _saveState();
+  }
+
+  /// Select all elements on canvas
+  void _selectAll() {
+    setState(() {
+      _selectedSpotIds.clear();
+      _selectedRoadIds.clear();
+      _selectedObstacleIds.clear();
+
+      for (final spot in _grid.spots) {
+        _selectedSpotIds.add(spot.id);
+      }
+      for (final road in _grid.roads) {
+        _selectedRoadIds.add(road.id);
+      }
+      for (final obstacle in _grid.obstacles) {
+        _selectedObstacleIds.add(obstacle.id);
+      }
+    });
+  }
+
   void _clearAll() {
     showDialog(
       context: context,
@@ -515,10 +653,56 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
       autofocus: true,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
-          // Escape key to clear ruler
-          if (event.logicalKey == LogicalKeyboardKey.escape) {
+          final isCtrlPressed = HardwareKeyboard.instance.isControlPressed;
+
+          // Ctrl+Z for undo
+          if (isCtrlPressed && event.logicalKey == LogicalKeyboardKey.keyZ) {
+            if (_undoStack.length > 1) {
+              _undo();
+              return KeyEventResult.handled;
+            }
+          }
+          // Ctrl+Y for redo (industry standard)
+          else if (isCtrlPressed &&
+              event.logicalKey == LogicalKeyboardKey.keyY) {
+            if (_redoStack.isNotEmpty) {
+              _redo();
+              return KeyEventResult.handled;
+            }
+          }
+          // Ctrl+C for copy
+          else if (isCtrlPressed &&
+              event.logicalKey == LogicalKeyboardKey.keyC) {
+            _copySelected();
+            return KeyEventResult.handled;
+          }
+          // Ctrl+V for paste
+          else if (isCtrlPressed &&
+              event.logicalKey == LogicalKeyboardKey.keyV) {
+            _pasteFromClipboard();
+            return KeyEventResult.handled;
+          }
+          // Ctrl+S for save/export
+          else if (isCtrlPressed &&
+              event.logicalKey == LogicalKeyboardKey.keyS) {
+            _exportToJson();
+            return KeyEventResult.handled;
+          }
+          // Ctrl+A for select all
+          else if (isCtrlPressed &&
+              event.logicalKey == LogicalKeyboardKey.keyA) {
+            _selectAll();
+            return KeyEventResult.handled;
+          }
+          // Escape key to clear ruler or deselect
+          else if (event.logicalKey == LogicalKeyboardKey.escape) {
             if (_rulerStart != null || _rulerEnd != null) {
               _clearRuler();
+              return KeyEventResult.handled;
+            } else if (_selectedSpotIds.isNotEmpty ||
+                _selectedRoadIds.isNotEmpty ||
+                _selectedObstacleIds.isNotEmpty) {
+              setState(() => _clearAllSelections());
               return KeyEventResult.handled;
             }
           }
@@ -562,12 +746,12 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
             IconButton(
               icon: const Icon(Icons.undo),
               onPressed: _undoStack.length > 1 ? _undo : null,
-              tooltip: 'Undo',
+              tooltip: 'Undo (Ctrl+Z)',
             ),
             IconButton(
               icon: const Icon(Icons.redo),
               onPressed: _redoStack.isNotEmpty ? _redo : null,
-              tooltip: 'Redo',
+              tooltip: 'Redo (Ctrl+Y)',
             ),
             const SizedBox(width: 8),
             IconButton(
