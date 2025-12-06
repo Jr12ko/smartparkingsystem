@@ -1,4 +1,4 @@
-# 🚗 Smart Parking System
+#  Smart Parking System
 
 <div align="center">
 
