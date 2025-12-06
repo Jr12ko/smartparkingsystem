@@ -513,7 +513,9 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
           ),
           child: Icon(
             icon,
-            color: isSelected ? Theme.of(context).primaryColor : Colors.white70,
+            color: isSelected
+                ? Theme.of(context).primaryColor
+                : Theme.of(context).iconTheme.color,
           ),
         ),
       ),
