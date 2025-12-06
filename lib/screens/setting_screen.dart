@@ -77,7 +77,7 @@ class _SettingScreenState extends State<SettingScreen> {
                 trailing: Switch.adaptive(
                   value: isDark,
                   onChanged: (_) => themeProvider.toggleTheme(),
-                  activeColor: const Color(0xFF6C63FF),
+                  activeThumbColor: Theme.of(context).primaryColor,
                 ),
               ),
             ),
