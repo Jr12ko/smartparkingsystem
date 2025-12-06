@@ -170,7 +170,6 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
     return null;
   }
 
-  /// Find a road at the given position
   String? _findRoadAt(double x, double y) {
     for (int i = _grid.roads.length - 1; i >= 0; i--) {
       final road = _grid.roads[i];
@@ -184,7 +183,6 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
     return null;
   }
 
-  /// Find an obstacle at the given position
   String? _findObstacleAt(double x, double y) {
     for (int i = _grid.obstacles.length - 1; i >= 0; i--) {
       final obstacle = _grid.obstacles[i];
@@ -307,7 +305,41 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
           _selectedSpotIds.remove(foundId);
         });
         _saveState();
+        return;
       }
+    }
+    // Try deleting a road
+    final roadId = _findRoadAt(x, y);
+    if (roadId != null) {
+      _deleteRoadAt(roadId);
+      return;
+    }
+    // Try deleting an obstacle
+    final obstacleId = _findObstacleAt(x, y);
+    if (obstacleId != null) {
+      _deleteObstacleAt(obstacleId);
+    }
+  }
+
+  void _deleteRoadAt(String roadId) {
+    final index = _grid.roads.indexWhere((r) => r.id == roadId);
+    if (index != -1) {
+      setState(() {
+        _grid.roads.removeAt(index);
+        _selectedRoadIds.remove(roadId);
+      });
+      _saveState();
+    }
+  }
+
+  void _deleteObstacleAt(String obstacleId) {
+    final index = _grid.obstacles.indexWhere((o) => o.id == obstacleId);
+    if (index != -1) {
+      setState(() {
+        _grid.obstacles.removeAt(index);
+        _selectedObstacleIds.remove(obstacleId);
+      });
+      _saveState();
     }
   }
 
@@ -325,9 +357,9 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear All Spots?'),
-        content:
-            const Text('This will remove all parking spots from the grid.'),
+        title: const Text('Clear All Elements?'),
+        content: const Text(
+            'This will remove all spots, roads, and obstacles from the grid.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -338,7 +370,11 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
               Navigator.pop(context);
               setState(() {
                 _grid.spots.clear();
+                _grid.roads.clear();
+                _grid.obstacles.clear();
                 _selectedSpotIds.clear();
+                _selectedRoadIds.clear();
+                _selectedObstacleIds.clear();
               });
               _saveState();
             },
