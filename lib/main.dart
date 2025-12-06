@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
+import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/amplifyconfiguration.dart';
+import 'services/theme_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _configureAmplify();
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 Future<void> _configureAmplify() async {
@@ -16,7 +23,6 @@ Future<void> _configureAmplify() async {
     final auth = AmplifyAuthCognito();
     await Amplify.addPlugin(auth);
 
-    // Define the configuration manually
     await Amplify.configure(amplifyConfig);
     safePrint('Successfully configured Amplify');
   } on Exception catch (e) {
@@ -56,32 +62,18 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const MaterialApp(
-        home: Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
-
-    return MaterialApp(
-      title: 'Smart Parking System',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
+  // Dark Theme
+  ThemeData get _darkTheme => ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF1E1E2C), // Midnight Blue
-        primaryColor: const Color(0xFF6C63FF), // Soft Violet
+        scaffoldBackgroundColor: const Color(0xFF1E1E2C),
+        primaryColor: const Color(0xFF6C63FF),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF6C63FF),
           brightness: Brightness.dark,
-          surface:
-              const Color(0xFF2D2D44), // Lighter Midnight for cards/surfaces
+          surface: const Color(0xFF2D2D44),
         ),
         useMaterial3: true,
-        fontFamily:
-            'Roboto', // Ensure a clean font is used (default, but explicit is good)
+        fontFamily: 'Roboto',
         textTheme: const TextTheme(
           headlineMedium: TextStyle(
             fontSize: 28,
@@ -139,7 +131,118 @@ class _MyAppState extends State<MyApp> {
             borderRadius: BorderRadius.circular(20),
           ),
         ),
-      ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: IconThemeData(color: Colors.white),
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+
+  // Light Theme
+  ThemeData get _lightTheme => ThemeData(
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+        primaryColor: const Color(0xFF6C63FF),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6C63FF),
+          brightness: Brightness.light,
+          surface: Colors.white,
+        ),
+        useMaterial3: true,
+        fontFamily: 'Roboto',
+        textTheme: const TextTheme(
+          headlineMedium: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1E1E2C),
+            letterSpacing: 1.2,
+          ),
+          bodyLarge: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF1E1E2C)),
+          bodyMedium: TextStyle(fontSize: 14, color: Color(0xFF4A4A5A)),
+          bodySmall: TextStyle(fontSize: 12, color: Color(0xFF6B6B7B)),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: const BorderSide(color: Color(0xFF6C63FF), width: 2),
+          ),
+          labelStyle: const TextStyle(color: Color(0xFF6B6B7B)),
+          prefixIconColor: const Color(0xFF6C63FF),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF6C63FF),
+            foregroundColor: Colors.white,
+            elevation: 4,
+            shadowColor: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+            minimumSize: const Size(double.infinity, 56),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ),
+        cardTheme: CardThemeData(
+          color: Colors.white,
+          elevation: 2,
+          shadowColor: Colors.black12,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: IconThemeData(color: Color(0xFF1E1E2C)),
+          titleTextStyle: TextStyle(
+            color: Color(0xFF1E1E2C),
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+
+    if (_isLoading) {
+      return MaterialApp(
+        theme: themeProvider.isDarkMode ? _darkTheme : _lightTheme,
+        home: const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    return MaterialApp(
+      title: 'Smart Parking System',
+      debugShowCheckedModeBanner: false,
+      theme: themeProvider.isDarkMode ? _darkTheme : _lightTheme,
       home: _isSignedIn
           ? const HomeScreen(username: 'User', password: '')
           : const LoginScreen(),
