@@ -29,7 +29,6 @@ class HomeScreen extends StatelessWidget {
                       'Welcome back,',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontSize: 18,
-                            color: Colors.white70,
                           ),
                     ),
                     const SizedBox(height: 8),
@@ -109,7 +108,11 @@ class HomeScreen extends StatelessWidget {
                 child: Text(
                   '© Smarpar 2025',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.4),
+                        color: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.color
+                            ?.withValues(alpha: 0.4),
                       ),
                 ),
               ),
@@ -156,26 +159,24 @@ class HomeScreen extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 14,
+                    ),
               ),
             ],
           ),
           const Spacer(),
           Icon(
             Icons.arrow_forward_ios_rounded,
-            color: Colors.white.withValues(alpha: 0.3),
+            color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.3),
             size: 18,
           ),
         ],
