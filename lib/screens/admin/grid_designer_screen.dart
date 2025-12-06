@@ -55,6 +55,10 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
   bool _isHoveringRuler = false;
   String? _draggingSpotId;
   Offset? _spotDragOffset;
+  String? _draggingRoadId;
+  Offset? _roadDragOffset;
+  String? _draggingObstacleId;
+  Offset? _obstacleDragOffset;
 
   @override
   void initState() {
@@ -268,19 +272,41 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
     _saveState();
   }
 
-  void _selectSpotAt(double x, double y, {bool isMultiSelect = false}) {
+  /// Select an element (spot, road, or obstacle) at the given position
+  void _selectElementAt(double x, double y) {
+    // Check spots first (top layer)
     final spotId = _findSpotAt(x, y);
+    if (spotId != null) {
+      setState(() {
+        _clearAllSelections();
+        _selectedSpotIds.add(spotId);
+      });
+      return;
+    }
+
+    // Check roads
+    final roadId = _findRoadAt(x, y);
+    if (roadId != null) {
+      setState(() {
+        _clearAllSelections();
+        _selectedRoadIds.add(roadId);
+      });
+      return;
+    }
+
+    // Check obstacles
+    final obstacleId = _findObstacleAt(x, y);
+    if (obstacleId != null) {
+      setState(() {
+        _clearAllSelections();
+        _selectedObstacleIds.add(obstacleId);
+      });
+      return;
+    }
+
+    // Clicked on empty area - clear selection
     setState(() {
-      if (!isMultiSelect) {
-        _selectedSpotIds.clear();
-      }
-      if (spotId != null) {
-        if (isMultiSelect && _selectedSpotIds.contains(spotId)) {
-          _selectedSpotIds.remove(spotId);
-        } else {
-          _selectedSpotIds.add(spotId);
-        }
-      }
+      _clearAllSelections();
     });
   }
 
@@ -342,6 +368,12 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
       });
       _saveState();
     }
+  }
+
+  void _clearAllSelections() {
+    _selectedSpotIds.clear();
+    _selectedRoadIds.clear();
+    _selectedObstacleIds.clear();
   }
 
   void _clearAll() {
@@ -653,17 +685,58 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
                                 );
                                 // Auto-select the spot being dragged
                                 if (!_selectedSpotIds.contains(spotId)) {
-                                  _selectedSpotIds.clear();
+                                  _clearAllSelections();
                                   _selectedSpotIds.add(spotId);
                                 }
                               });
                             }
                           } else {
-                            // Start box selection on empty area
-                            setState(() {
-                              _dragStart = localPosition;
-                              _dragEnd = localPosition;
-                            });
+                            // Check if clicking on a road
+                            final roadId =
+                                _findRoadAt(localPosition.dx, localPosition.dy);
+                            if (roadId != null) {
+                              final road = _grid.findRoad(roadId);
+                              if (road != null) {
+                                setState(() {
+                                  _draggingRoadId = roadId;
+                                  _roadDragOffset = Offset(
+                                    localPosition.dx - road.x,
+                                    localPosition.dy - road.y,
+                                  );
+                                  if (!_selectedRoadIds.contains(roadId)) {
+                                    _clearAllSelections();
+                                    _selectedRoadIds.add(roadId);
+                                  }
+                                });
+                              }
+                            } else {
+                              // Check if clicking on an obstacle
+                              final obstacleId = _findObstacleAt(
+                                  localPosition.dx, localPosition.dy);
+                              if (obstacleId != null) {
+                                final obstacle = _grid.findObstacle(obstacleId);
+                                if (obstacle != null) {
+                                  setState(() {
+                                    _draggingObstacleId = obstacleId;
+                                    _obstacleDragOffset = Offset(
+                                      localPosition.dx - obstacle.x,
+                                      localPosition.dy - obstacle.y,
+                                    );
+                                    if (!_selectedObstacleIds
+                                        .contains(obstacleId)) {
+                                      _clearAllSelections();
+                                      _selectedObstacleIds.add(obstacleId);
+                                    }
+                                  });
+                                }
+                              } else {
+                                // Start box selection on empty area
+                                setState(() {
+                                  _dragStart = localPosition;
+                                  _dragEnd = localPosition;
+                                });
+                              }
+                            }
                           }
                         } else if (_currentTool == DesignerTool.addSpot) {
                           _addSpotAt(localPosition.dx, localPosition.dy);
@@ -722,6 +795,41 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
                                     .clamp(0, _grid.canvasHeight - spot.height);
                               });
                             }
+                          } else if (_draggingRoadId != null &&
+                              _roadDragOffset != null) {
+                            // Dragging a road - move it
+                            final road = _grid.findRoad(_draggingRoadId!);
+                            if (road != null) {
+                              setState(() {
+                                final newX =
+                                    localPosition.dx - _roadDragOffset!.dx;
+                                final newY =
+                                    localPosition.dy - _roadDragOffset!.dy;
+                                road.x = _grid
+                                    .snapToGrid(newX)
+                                    .clamp(0, _grid.canvasWidth - road.width);
+                                road.y = _grid
+                                    .snapToGrid(newY)
+                                    .clamp(0, _grid.canvasHeight - road.height);
+                              });
+                            }
+                          } else if (_draggingObstacleId != null &&
+                              _obstacleDragOffset != null) {
+                            // Dragging an obstacle - move it
+                            final obstacle =
+                                _grid.findObstacle(_draggingObstacleId!);
+                            if (obstacle != null) {
+                              setState(() {
+                                final newX =
+                                    localPosition.dx - _obstacleDragOffset!.dx;
+                                final newY =
+                                    localPosition.dy - _obstacleDragOffset!.dy;
+                                obstacle.x = _grid.snapToGrid(newX).clamp(
+                                    0, _grid.canvasWidth - obstacle.width);
+                                obstacle.y = _grid.snapToGrid(newY).clamp(
+                                    0, _grid.canvasHeight - obstacle.height);
+                              });
+                            }
                           } else if (_dragStart != null) {
                             // Box selection
                             setState(() {
@@ -750,6 +858,20 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
                               _spotDragOffset = null;
                             });
                             _saveState();
+                          } else if (_draggingRoadId != null) {
+                            // Finished dragging a road
+                            setState(() {
+                              _draggingRoadId = null;
+                              _roadDragOffset = null;
+                            });
+                            _saveState();
+                          } else if (_draggingObstacleId != null) {
+                            // Finished dragging an obstacle
+                            setState(() {
+                              _draggingObstacleId = null;
+                              _obstacleDragOffset = null;
+                            });
+                            _saveState();
                           } else if (_dragStart != null) {
                             // Box selection
                             final localPosition = _transformController
@@ -757,8 +879,8 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
                             final dragDistance =
                                 (_dragStart! - localPosition).distance;
                             if (dragDistance < 5) {
-                              _selectSpotAt(localPosition.dx, localPosition.dy,
-                                  isMultiSelect: false);
+                              _selectElementAt(
+                                  localPosition.dx, localPosition.dy);
                             } else {
                               _updateSelectionFromDrag();
                             }
@@ -1014,16 +1136,40 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
     if (_dragStart == null || _dragEnd == null) return;
 
     final rect = Rect.fromPoints(_dragStart!, _dragEnd!);
-    final newSelection = <String>{};
+    final newSpotSelection = <String>{};
+    final newRoadSelection = <String>{};
+    final newObstacleSelection = <String>{};
 
+    // Select spots that overlap with the drag rectangle
     for (final spot in _grid.spots) {
       final spotRect = Rect.fromLTWH(spot.x, spot.y, spot.width, spot.height);
       if (rect.overlaps(spotRect)) {
-        newSelection.add(spot.id);
+        newSpotSelection.add(spot.id);
       }
     }
 
-    _selectedSpotIds.clear();
-    _selectedSpotIds.addAll(newSelection);
+    // Select roads that overlap with the drag rectangle
+    for (final road in _grid.roads) {
+      final roadRect = Rect.fromLTWH(road.x, road.y, road.width, road.height);
+      if (rect.overlaps(roadRect)) {
+        newRoadSelection.add(road.id);
+      }
+    }
+
+    // Select obstacles that overlap with the drag rectangle
+    for (final obstacle in _grid.obstacles) {
+      final obstacleRect = Rect.fromLTWH(
+          obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+      if (rect.overlaps(obstacleRect)) {
+        newObstacleSelection.add(obstacle.id);
+      }
+    }
+
+    setState(() {
+      _clearAllSelections();
+      _selectedSpotIds.addAll(newSpotSelection);
+      _selectedRoadIds.addAll(newRoadSelection);
+      _selectedObstacleIds.addAll(newObstacleSelection);
+    });
   }
 }
