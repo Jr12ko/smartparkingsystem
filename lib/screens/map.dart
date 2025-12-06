@@ -4,14 +4,8 @@ import '../models/parking_grid.dart';
 import '../models/parking_spot.dart';
 import '../widgets/navigation.dart';
 
-const startAlignment = Alignment.topLeft;
-const endAlignment = Alignment.bottomRight;
-
 class MapScreen extends StatefulWidget {
-  const MapScreen(this.color1, this.color2, {super.key});
-
-  final Color color1;
-  final Color color2;
+  const MapScreen({super.key});
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -134,54 +128,49 @@ class _MapScreenState extends State<MapScreen> {
             : Colors.grey,
         child: const Icon(Icons.arrow_forward),
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [widget.color1, widget.color2],
-            begin: startAlignment,
-            end: endAlignment,
+      body: Column(
+        children: [
+          NavigationWidget(
+            icon: _currentIcon,
+            distance: _currentDistance,
+            instruction: _currentInstruction,
           ),
-        ),
-        child: Column(
-          children: [
-            NavigationWidget(
-              icon: _currentIcon,
-              distance: _currentDistance,
-              instruction: _currentInstruction,
-            ),
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A2E),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white24),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardTheme.color,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Theme.of(context).dividerColor,
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: InteractiveViewer(
-                    transformationController: _transformController,
-                    constrained: false,
-                    minScale: 0.5,
-                    maxScale: 3.0,
-                    boundaryMargin: const EdgeInsets.all(100),
-                    child: GestureDetector(
-                      onTapUp: (details) {
-                        final localPos =
-                            _transformController.toScene(details.localPosition);
-                        _handleTap(localPos.dx, localPos.dy);
-                      },
-                      child: Container(
-                        width: _grid.canvasWidth,
-                        height: _grid.canvasHeight,
-                        color: const Color(0xFF0D0D1A),
-                        child: CustomPaint(
-                          size: Size(_grid.canvasWidth, _grid.canvasHeight),
-                          painter: UserGridPainter(
-                            grid: _grid,
-                            spotAvailability: _spotAvailability,
-                            selectedSpotId: _selectedSpotId,
-                          ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: InteractiveViewer(
+                  transformationController: _transformController,
+                  constrained: false,
+                  minScale: 0.5,
+                  maxScale: 3.0,
+                  boundaryMargin: const EdgeInsets.all(100),
+                  child: GestureDetector(
+                    onTapUp: (details) {
+                      final localPos =
+                          _transformController.toScene(details.localPosition);
+                      _handleTap(localPos.dx, localPos.dy);
+                    },
+                    child: Container(
+                      width: _grid.canvasWidth,
+                      height: _grid.canvasHeight,
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      child: CustomPaint(
+                        size: Size(_grid.canvasWidth, _grid.canvasHeight),
+                        painter: UserGridPainter(
+                          grid: _grid,
+                          spotAvailability: _spotAvailability,
+                          selectedSpotId: _selectedSpotId,
+                          isDarkMode:
+                              Theme.of(context).brightness == Brightness.dark,
                         ),
                       ),
                     ),
@@ -189,10 +178,10 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
             ),
-            // Legend
-            _buildLegend(),
-          ],
-        ),
+          ),
+          // Legend
+          _buildLegend(),
+        ],
       ),
     );
   }
@@ -215,8 +204,15 @@ class _MapScreenState extends State<MapScreen> {
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.3),
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -244,7 +240,7 @@ class _MapScreenState extends State<MapScreen> {
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
+          style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
     );
@@ -256,18 +252,23 @@ class UserGridPainter extends CustomPainter {
   final ParkingGrid grid;
   final Map<String, bool> spotAvailability;
   final String? selectedSpotId;
+  final bool isDarkMode;
 
   UserGridPainter({
     required this.grid,
     required this.spotAvailability,
     this.selectedSpotId,
+    this.isDarkMode = true,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     // Draw grid lines
+    final gridLineColor = isDarkMode
+        ? Colors.white.withValues(alpha: 0.1)
+        : Colors.black.withValues(alpha: 0.1);
     final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.1)
+      ..color = gridLineColor
       ..strokeWidth = 1;
 
     for (double x = 0; x <= grid.canvasWidth; x += grid.gridSize) {
@@ -332,11 +333,12 @@ class UserGridPainter extends CustomPainter {
     }
 
     // ID label
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
     final textPainter = TextPainter(
       text: TextSpan(
         text: spot.id,
         style: TextStyle(
-          color: Colors.white,
+          color: textColor,
           fontSize: 14,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
@@ -367,6 +369,7 @@ class UserGridPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant UserGridPainter oldDelegate) {
     return selectedSpotId != oldDelegate.selectedSpotId ||
-        grid.spots.length != oldDelegate.grid.spots.length;
+        grid.spots.length != oldDelegate.grid.spots.length ||
+        isDarkMode != oldDelegate.isDarkMode;
   }
 }

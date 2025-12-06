@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../models/parking_grid.dart';
 import '../../models/parking_spot.dart';
+import '../../models/road.dart';
+import '../../models/obstacle.dart';
 import '../../widgets/fade_slide_transition.dart';
 
 // Conditional import for web
@@ -12,7 +14,16 @@ import 'grid_designer_web.dart' if (dart.library.io) 'grid_designer_io.dart'
     as file_ops;
 
 /// Tool modes for the grid designer
-enum DesignerTool { select, pan, addSpot, delete, ruler, rotate }
+enum DesignerTool {
+  select,
+  pan,
+  addSpot,
+  addRoad,
+  addObstacle,
+  delete,
+  ruler,
+  rotate
+}
 
 /// Main grid designer screen for creating/editing parking layouts
 class GridDesignerScreen extends StatefulWidget {
@@ -28,11 +39,18 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
   late ParkingGrid _grid;
   DesignerTool _currentTool = DesignerTool.select;
   SpotType _selectedSpotType = SpotType.regular;
+  ObstacleType _selectedObstacleType = ObstacleType.pillar;
   final Set<String> _selectedSpotIds = {};
+  final Set<String> _selectedRoadIds = {};
+  final Set<String> _selectedObstacleIds = {};
 
   // Drag selection state
   Offset? _dragStart;
   Offset? _dragEnd;
+
+  // Road drawing state
+  Offset? _roadDrawStart;
+  Offset? _roadDrawEnd;
 
   final TransformationController _transformController =
       TransformationController();
@@ -150,6 +168,115 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
       }
     }
     return null;
+  }
+
+  /// Find a road at the given position
+  String? _findRoadAt(double x, double y) {
+    for (int i = _grid.roads.length - 1; i >= 0; i--) {
+      final road = _grid.roads[i];
+      if (x >= road.x &&
+          x <= road.x + road.width &&
+          y >= road.y &&
+          y <= road.y + road.height) {
+        return road.id;
+      }
+    }
+    return null;
+  }
+
+  /// Find an obstacle at the given position
+  String? _findObstacleAt(double x, double y) {
+    for (int i = _grid.obstacles.length - 1; i >= 0; i--) {
+      final obstacle = _grid.obstacles[i];
+      if (x >= obstacle.x &&
+          x <= obstacle.x + obstacle.width &&
+          y >= obstacle.y &&
+          y <= obstacle.y + obstacle.height) {
+        return obstacle.id;
+      }
+    }
+    return null;
+  }
+
+  void _addRoadAt(double x, double y, {double? endX, double? endY}) {
+    // Calculate dimensions if drawing a road segment
+    double roadWidth = 80;
+    double roadHeight = 200;
+
+    if (endX != null && endY != null) {
+      // Road was drawn with drag - calculate dimensions from start/end
+      final dx = (endX - x).abs();
+      final dy = (endY - y).abs();
+      if (dx > dy) {
+        // Horizontal road
+        roadWidth = dx.clamp(40, _grid.canvasWidth);
+        roadHeight = 60;
+      } else {
+        // Vertical road
+        roadWidth = 60;
+        roadHeight = dy.clamp(40, _grid.canvasHeight);
+      }
+      // Adjust position to start from min coordinates
+      x = x < endX ? x : endX;
+      y = y < endY ? y : endY;
+    }
+
+    var snappedX = _grid.snapToGrid(x);
+    var snappedY = _grid.snapToGrid(y);
+
+    snappedX = snappedX.clamp(0, _grid.canvasWidth - roadWidth);
+    snappedY = snappedY.clamp(0, _grid.canvasHeight - roadHeight);
+
+    final road = Road(
+      id: _grid.generateRoadId(),
+      x: snappedX,
+      y: snappedY,
+      width: roadWidth,
+      height: roadHeight,
+    );
+
+    setState(() {
+      _grid.addRoad(road);
+      _selectedRoadIds.clear();
+      _selectedRoadIds.add(road.id);
+      _selectedSpotIds.clear();
+      _selectedObstacleIds.clear();
+    });
+    _saveState();
+  }
+
+  void _addObstacleAt(double x, double y) {
+    final tempObstacle = Obstacle(
+      id: '',
+      x: 0,
+      y: 0,
+      type: _selectedObstacleType,
+    );
+
+    final centeredX = x - tempObstacle.width / 2;
+    final centeredY = y - tempObstacle.height / 2;
+
+    var snappedX = _grid.snapToGrid(centeredX);
+    var snappedY = _grid.snapToGrid(centeredY);
+
+    snappedX = snappedX.clamp(0, _grid.canvasWidth - tempObstacle.width);
+    snappedY = snappedY.clamp(0, _grid.canvasHeight - tempObstacle.height);
+
+    final obstacle = Obstacle(
+      id: _grid.generateObstacleId(),
+      x: snappedX,
+      y: snappedY,
+      type: _selectedObstacleType,
+    );
+
+    setState(() {
+      _grid.addObstacle(obstacle);
+      _selectedObstacleIds.clear();
+      _selectedObstacleIds.add(obstacle.id);
+      _selectedSpotIds.clear();
+      _selectedRoadIds.clear();
+    });
+    _saveState();
   }
 
   void _selectSpotAt(double x, double y, {bool isMultiSelect = false}) {
@@ -432,58 +559,87 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
         color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        children: [
-          _buildToolButton(
-            icon: Icons.mouse,
-            label: 'Select',
-            tool: DesignerTool.select,
-          ),
-          const SizedBox(height: 8),
-          _buildToolButton(
-            icon: Icons.pan_tool,
-            label: 'Pan',
-            tool: DesignerTool.pan,
-          ),
-          const SizedBox(height: 8),
-          _buildToolButton(
-            icon: Icons.add_box,
-            label: 'Add',
-            tool: DesignerTool.addSpot,
-          ),
-          const SizedBox(height: 8),
-          _buildToolButton(
-            icon: Icons.delete,
-            label: 'Delete',
-            tool: DesignerTool.delete,
-          ),
-          const SizedBox(height: 8),
-          _buildToolButton(
-            icon: Icons.straighten,
-            label: 'Ruler',
-            tool: DesignerTool.ruler,
-          ),
-          const SizedBox(height: 8),
-          _buildToolButton(
-            icon: Icons.rotate_right,
-            label: 'Rotate (R)',
-            tool: DesignerTool.rotate,
-          ),
-          const Divider(height: 32),
-          _buildSpotTypeButton(
-              SpotType.regular, Icons.local_parking, 'Regular'),
-          const SizedBox(height: 8),
-          _buildSpotTypeButton(
-              SpotType.handicapped, Icons.accessible, 'Accessible'),
-          const SizedBox(height: 8),
-          _buildSpotTypeButton(SpotType.evCharging, Icons.ev_station, 'EV'),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.delete_forever, color: Colors.red),
-            onPressed: _clearAll,
-            tooltip: 'Clear All',
-          ),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            _buildToolButton(
+              icon: Icons.mouse,
+              label: 'Select',
+              tool: DesignerTool.select,
+            ),
+            const SizedBox(height: 8),
+            _buildToolButton(
+              icon: Icons.pan_tool,
+              label: 'Pan',
+              tool: DesignerTool.pan,
+            ),
+            const SizedBox(height: 8),
+            _buildToolButton(
+              icon: Icons.add_box,
+              label: 'Add Spot',
+              tool: DesignerTool.addSpot,
+            ),
+            const SizedBox(height: 8),
+            _buildToolButton(
+              icon: Icons.add_road,
+              label: 'Add Road',
+              tool: DesignerTool.addRoad,
+            ),
+            const SizedBox(height: 8),
+            _buildToolButton(
+              icon: Icons.view_column,
+              label: 'Add Pillar',
+              tool: DesignerTool.addObstacle,
+            ),
+            const SizedBox(height: 8),
+            _buildToolButton(
+              icon: Icons.delete,
+              label: 'Delete',
+              tool: DesignerTool.delete,
+            ),
+            const SizedBox(height: 8),
+            _buildToolButton(
+              icon: Icons.straighten,
+              label: 'Ruler',
+              tool: DesignerTool.ruler,
+            ),
+            const SizedBox(height: 8),
+            _buildToolButton(
+              icon: Icons.rotate_right,
+              label: 'Rotate (R)',
+              tool: DesignerTool.rotate,
+            ),
+            const Divider(height: 32),
+            // Spot types (only shown when addSpot is selected)
+            if (_currentTool == DesignerTool.addSpot) ...[
+              _buildSpotTypeButton(
+                  SpotType.regular, Icons.local_parking, 'Regular'),
+              const SizedBox(height: 8),
+              _buildSpotTypeButton(
+                  SpotType.handicapped, Icons.accessible, 'Accessible'),
+              const SizedBox(height: 8),
+              _buildSpotTypeButton(SpotType.evCharging, Icons.ev_station, 'EV'),
+              const SizedBox(height: 16),
+            ],
+            // Obstacle types (only shown when addObstacle is selected)
+            if (_currentTool == DesignerTool.addObstacle) ...[
+              _buildObstacleTypeButton(
+                  ObstacleType.pillar, Icons.crop_square, 'Pillar'),
+              const SizedBox(height: 8),
+              _buildObstacleTypeButton(
+                  ObstacleType.wall, Icons.view_week, 'Wall'),
+              const SizedBox(height: 8),
+              _buildObstacleTypeButton(
+                  ObstacleType.barrier, Icons.fence, 'Barrier'),
+              const SizedBox(height: 16),
+            ],
+            IconButton(
+              icon: const Icon(Icons.delete_forever, color: Colors.red),
+              onPressed: _clearAll,
+              tooltip: 'Clear All',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -544,6 +700,42 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildObstacleTypeButton(
+      ObstacleType type, IconData icon, String label) {
+    final isSelected = _selectedObstacleType == type;
+    final color = _getObstacleColor(type);
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        onTap: () => setState(() => _selectedObstacleType = type),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? color.withValues(alpha: 0.3)
+                : Theme.of(context).cardTheme.color,
+            borderRadius: BorderRadius.circular(12),
+            border: isSelected ? Border.all(color: color, width: 2) : null,
+          ),
+          child: Icon(icon, color: color),
+        ),
+      ),
+    );
+  }
+
+  Color _getObstacleColor(ObstacleType type) {
+    switch (type) {
+      case ObstacleType.pillar:
+        return Colors.grey;
+      case ObstacleType.wall:
+        return Colors.brown;
+      case ObstacleType.barrier:
+        return Colors.orange;
+    }
   }
 
   Widget _buildCanvas() {
@@ -636,6 +828,15 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
                           if (spotId != null) {
                             _rotateSpot(spotId);
                           }
+                        } else if (_currentTool == DesignerTool.addRoad) {
+                          // Start drawing a road
+                          setState(() {
+                            _roadDrawStart = localPosition;
+                            _roadDrawEnd = localPosition;
+                          });
+                        } else if (_currentTool == DesignerTool.addObstacle) {
+                          // Place an obstacle at click position
+                          _addObstacleAt(localPosition.dx, localPosition.dy);
                         }
                       },
                       onPointerMove: (event) {
@@ -673,6 +874,12 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
                           setState(() {
                             _rulerEnd = localPosition;
                           });
+                        } else if (_currentTool == DesignerTool.addRoad &&
+                            _roadDrawStart != null) {
+                          // Update road preview
+                          setState(() {
+                            _roadDrawEnd = localPosition;
+                          });
                         }
                       },
                       onPointerUp: (event) {
@@ -701,6 +908,29 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
                               _dragEnd = null;
                             });
                           }
+                        } else if (_currentTool == DesignerTool.addRoad &&
+                            _roadDrawStart != null) {
+                          // Complete road creation
+                          final localPosition =
+                              _transformController.toScene(event.localPosition);
+                          final dragDistance =
+                              (_roadDrawStart! - localPosition).distance;
+                          if (dragDistance > 20) {
+                            // Minimum drag distance for road
+                            _addRoadAt(
+                              _roadDrawStart!.dx,
+                              _roadDrawStart!.dy,
+                              endX: localPosition.dx,
+                              endY: localPosition.dy,
+                            );
+                          } else {
+                            // Click without drag - place default road
+                            _addRoadAt(localPosition.dx, localPosition.dy);
+                          }
+                          setState(() {
+                            _roadDrawStart = null;
+                            _roadDrawEnd = null;
+                          });
                         }
                         // Ruler keeps its position after pointer up (doesn't reset)
                       },
@@ -735,11 +965,15 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
                               painter: GridPainter(
                                 grid: _grid,
                                 selectedSpotIds: _selectedSpotIds,
+                                selectedRoadIds: _selectedRoadIds,
+                                selectedObstacleIds: _selectedObstacleIds,
                                 dragStart: _dragStart,
                                 dragEnd: _dragEnd,
                                 rulerStart: _rulerStart,
                                 rulerEnd: _rulerEnd,
                                 isHoveringRuler: _isHoveringRuler,
+                                roadDrawStart: _roadDrawStart,
+                                roadDrawEnd: _roadDrawEnd,
                               ),
                             ),
                           ),
@@ -1190,22 +1424,34 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
 class GridPainter extends CustomPainter {
   final ParkingGrid grid;
   final Set<String> selectedSpotIds;
+  final Set<String> selectedRoadIds;
+  final Set<String> selectedObstacleIds;
   final Offset? dragStart;
   final Offset? dragEnd;
   final Offset? rulerStart;
   final Offset? rulerEnd;
   final bool isHoveringRuler;
-  final int spotCount; // Track spot count to detect deletions
+  final Offset? roadDrawStart;
+  final Offset? roadDrawEnd;
+  final int spotCount;
+  final int roadCount;
+  final int obstacleCount;
 
   GridPainter({
     required this.grid,
     required this.selectedSpotIds,
+    this.selectedRoadIds = const {},
+    this.selectedObstacleIds = const {},
     this.dragStart,
     this.dragEnd,
     this.rulerStart,
     this.rulerEnd,
     this.isHoveringRuler = false,
-  }) : spotCount = grid.spots.length;
+    this.roadDrawStart,
+    this.roadDrawEnd,
+  })  : spotCount = grid.spots.length,
+        roadCount = grid.roads.length,
+        obstacleCount = grid.obstacles.length;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1221,10 +1467,27 @@ class GridPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(grid.canvasWidth, y), gridPaint);
     }
 
-    // Draw parking spots
+    // Draw roads (behind spots)
+    for (final road in grid.roads) {
+      final isSelected = selectedRoadIds.contains(road.id);
+      _drawRoad(canvas, road, isSelected);
+    }
+
+    // Draw obstacles (behind spots)
+    for (final obstacle in grid.obstacles) {
+      final isSelected = selectedObstacleIds.contains(obstacle.id);
+      _drawObstacle(canvas, obstacle, isSelected);
+    }
+
+    // Draw parking spots (on top)
     for (final spot in grid.spots) {
       final isSelected = selectedSpotIds.contains(spot.id);
       _drawSpot(canvas, spot, isSelected);
+    }
+
+    // Draw road preview during drawing
+    if (roadDrawStart != null && roadDrawEnd != null) {
+      _drawRoadPreview(canvas, roadDrawStart!, roadDrawEnd!);
     }
 
     // Draw drag selection rectangle
@@ -1246,6 +1509,160 @@ class GridPainter extends CustomPainter {
     // Draw ruler measurement line
     if (rulerStart != null && rulerEnd != null) {
       _drawRuler(canvas, rulerStart!, rulerEnd!);
+    }
+  }
+
+  void _drawRoad(Canvas canvas, Road road, bool isSelected) {
+    final rect = Rect.fromLTWH(road.x, road.y, road.width, road.height);
+
+    // Road fill - gray/asphalt color
+    final fillPaint = Paint()
+      ..color = Colors.grey.shade700
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+      fillPaint,
+    );
+
+    // Center dashed line (simplified as solid)
+    final centerLinePaint = Paint()
+      ..color = Colors.yellow.withValues(alpha: 0.6)
+      ..strokeWidth = 2;
+    if (road.width > road.height) {
+      // Horizontal road
+      canvas.drawLine(
+        Offset(road.x + 10, road.y + road.height / 2),
+        Offset(road.x + road.width - 10, road.y + road.height / 2),
+        centerLinePaint,
+      );
+    } else {
+      // Vertical road
+      canvas.drawLine(
+        Offset(road.x + road.width / 2, road.y + 10),
+        Offset(road.x + road.width / 2, road.y + road.height - 10),
+        centerLinePaint,
+      );
+    }
+
+    // Border
+    final borderPaint = Paint()
+      ..color = isSelected ? Colors.white : Colors.grey.shade500
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isSelected ? 3 : 1;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+      borderPaint,
+    );
+
+    // ID label
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: road.id,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(
+      canvas,
+      Offset(road.x + 4, road.y + 4),
+    );
+  }
+
+  void _drawObstacle(Canvas canvas, Obstacle obstacle, bool isSelected) {
+    final rect =
+        Rect.fromLTWH(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+    final color = _getObstacleColor(obstacle.type);
+
+    // Fill
+    final fillPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+      fillPaint,
+    );
+
+    // Border
+    final borderPaint = Paint()
+      ..color = isSelected ? Colors.white : color.withValues(alpha: 0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isSelected ? 3 : 2;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+      borderPaint,
+    );
+
+    // ID label
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: obstacle.id,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(
+      canvas,
+      Offset(
+        obstacle.x + (obstacle.width - textPainter.width) / 2,
+        obstacle.y + (obstacle.height - textPainter.height) / 2,
+      ),
+    );
+  }
+
+  void _drawRoadPreview(Canvas canvas, Offset start, Offset end) {
+    // Calculate preview rectangle
+    final dx = (end.dx - start.dx).abs();
+    final dy = (end.dy - start.dy).abs();
+    double width, height;
+    if (dx > dy) {
+      width = dx;
+      height = 60;
+    } else {
+      width = 60;
+      height = dy;
+    }
+    final x = start.dx < end.dx ? start.dx : end.dx;
+    final y = start.dy < end.dy ? start.dy : end.dy;
+    final rect = Rect.fromLTWH(x, y, width, height);
+
+    // Preview fill
+    final fillPaint = Paint()
+      ..color = Colors.grey.withValues(alpha: 0.3)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+      fillPaint,
+    );
+
+    // Preview border
+    final borderPaint = Paint()
+      ..color = Colors.grey
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+      borderPaint,
+    );
+  }
+
+  Color _getObstacleColor(ObstacleType type) {
+    switch (type) {
+      case ObstacleType.pillar:
+        return Colors.grey.shade800;
+      case ObstacleType.wall:
+        return Colors.brown.shade700;
+      case ObstacleType.barrier:
+        return Colors.orange.shade800;
     }
   }
 
@@ -1385,11 +1802,17 @@ class GridPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant GridPainter oldDelegate) {
     return spotCount != oldDelegate.spotCount ||
+        roadCount != oldDelegate.roadCount ||
+        obstacleCount != oldDelegate.obstacleCount ||
         !setEquals(selectedSpotIds, oldDelegate.selectedSpotIds) ||
+        !setEquals(selectedRoadIds, oldDelegate.selectedRoadIds) ||
+        !setEquals(selectedObstacleIds, oldDelegate.selectedObstacleIds) ||
         dragStart != oldDelegate.dragStart ||
         dragEnd != oldDelegate.dragEnd ||
         rulerStart != oldDelegate.rulerStart ||
         rulerEnd != oldDelegate.rulerEnd ||
-        isHoveringRuler != oldDelegate.isHoveringRuler;
+        isHoveringRuler != oldDelegate.isHoveringRuler ||
+        roadDrawStart != oldDelegate.roadDrawStart ||
+        roadDrawEnd != oldDelegate.roadDrawEnd;
   }
 }

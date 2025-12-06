@@ -47,8 +47,7 @@ class HomeScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            const MapScreen(Colors.deepPurple, Colors.purple),
+                        builder: (context) => const MapScreen(),
                       ),
                     );
                   },
