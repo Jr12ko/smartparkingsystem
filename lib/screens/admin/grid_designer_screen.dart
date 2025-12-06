@@ -505,7 +505,7 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
           decoration: BoxDecoration(
             color: isSelected
                 ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
-                : Colors.transparent,
+                : Theme.of(context).cardTheme.color,
             borderRadius: BorderRadius.circular(12),
             border: isSelected
                 ? Border.all(color: Theme.of(context).primaryColor, width: 2)
@@ -534,8 +534,9 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color:
-                isSelected ? color.withValues(alpha: 0.3) : Colors.transparent,
+            color: isSelected
+                ? color.withValues(alpha: 0.3)
+                : Theme.of(context).cardTheme.color,
             borderRadius: BorderRadius.circular(12),
             border: isSelected ? Border.all(color: color, width: 2) : null,
           ),
@@ -990,7 +991,7 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
           }, key: ValueKey('h_${spot.id}')),
           const SizedBox(height: 8),
           Text('Type: ${spot.type.name}',
-              style: const TextStyle(color: Colors.white70)),
+              style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 16),
           DropdownButton<SpotType>(
             value: spot.type,
@@ -1062,8 +1063,10 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
           const SizedBox(height: 16),
           Text(
             'Bulk Edit',
-            style: const TextStyle(
-                color: Colors.white70, fontWeight: FontWeight.bold),
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           DropdownButton<SpotType>(
@@ -1119,7 +1122,8 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            style:
+                Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 12)),
         SizedBox(
           height: 30,
           child: TextFormField(
@@ -1146,7 +1150,8 @@ class _GridDesignerScreenState extends State<GridDesignerScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            style:
+                Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 12)),
         SizedBox(
           height: 30,
           child: TextFormField(
